@@ -86,7 +86,7 @@ void MainWindow::openFile(void)
         QString                 selectedFilter;
         QString                 fileName =
             QFileDialog::getOpenFileName(this,
-                                         tr("QFileDialog::getOpenFileName()"),
+                                         tr("Import"),
                                          this->windowTitle(),
                                          tr("MOV Files (*.MOV);;All Files (*)"),
                                          &selectedFilter,
@@ -110,7 +110,7 @@ void MainWindow::exportFile(void)
 
         QString                 fileName =
             QFileDialog::getSaveFileName(this,
-                                         tr("QFileDialog::getSaveFileName()"),
+                                         tr("Export"),
                                          fileInfo.baseName(),
                                          tr("All Files (*);;JPEG Files (*.JPG)"
                                             ";;OpenEXR Files(*.EXR)"),
