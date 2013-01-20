@@ -18,8 +18,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *******************************************************************************/
 
-#ifndef DSLRLABVIEW_H
-#define DSLRLABVIEW_H
+#ifndef YCBCRLABVIEW_H
+#define YCBCRLABVIEW_H
 
 #include <QtGui>
 #include <exception>
@@ -29,12 +29,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "qbasegraphicsview.h"
 #include "qgraphicstrimslider.h"
 
-#define DSLRVIEW_SCALE_INCREMENT                10
+#define YCBCRVIEW_SCALE_INCREMENT                10
 // Default speed of scaling for zooming in and out.
-#define DSLRVIEW_WHEEL_SCALEFACTOR              1.15f
-#define DSLRVIEW_OVERLAY_MARGIN                 80
+#define YCBCRVIEW_WHEEL_SCALEFACTOR              1.15f
+#define YCBCRVIEW_OVERLAY_MARGIN                 80
 // Animations and Transitions
-#define DSLRVIEW_DURATION_INTROFADEIN           250
+#define YCBCRVIEW_DURATION_INTROFADEIN           250
 
 #define INITANIM                                10
 
@@ -42,8 +42,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define PROGRESS_HEIGHT                         6
 #define PROGRESS_MAXIMUM                        1000
 
-#define DSLRVIEW_TRANSPARENT                    0.0
-#define DSLRVIEW_OPAQUE                         1.0
+#define YCBCRVIEW_TRANSPARENT                    0.0
+#define YCBCRVIEW_OPAQUE                         1.0
 
 #define TIMELINE_DURATION                       350
 #define TIMELINE_ZOOM_UPDATE                    16
@@ -56,7 +56,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define SLIDER_OPACITY                          0.70
 
-#define MAXIMUM_SCALE                           24.00
+#define MAXIMUM_SCALE                           100.00
 #define MINIMUM_SCALE                           0.250
 
 class QffSequence : public QObject, public ffSequence
@@ -84,17 +84,16 @@ private:
     void onJustLoading(void);
     void onJustOpened(void);
     void onJustClosed(void);
-    void onJustErrored(void);
+//    void onJustErrored(void);
     void onExportTrimChanged(long, long, void *);
     void onExportPlaneChanged(ffExportDetails::ExportPlane, void *);
     void onFrameChanged(long, void *);
 
 public:
-    explicit QffSequence(QWidget *parent = 0) :
-        QObject(parent), ffSequence() {}
+    explicit QffSequence(QWidget *parent = 0);
 };
 
-class DSLRLabView : public QWidget
+class YCbCrLabView : public QWidget
 {
     Q_OBJECT
 
@@ -104,8 +103,8 @@ public:
         SliderPadding = 10
     };
 
-    explicit DSLRLabView(QWidget *parent = 0);
-    ~DSLRLabView();
+    explicit YCbCrLabView(QWidget *parent = 0);
+    ~YCbCrLabView();
 
     void resetTransform(void);
     void fitToView(void);
@@ -118,9 +117,9 @@ public:
     ffViewer::ViewerPlane getViewerPlane(void);
     void setViewerPlane(ffViewer::ViewerPlane);
 
-    ffSequence::ffSequenceState getState(void);
+    ffSequenceState getState(void);
     void openSequence(char *);
-    void saveSequence(char *, long, long);
+    void saveSequence(char *);
     void closeSequence(void);
     QffSequence * getQffSequence(void);
 
@@ -131,13 +130,13 @@ signals:
     void signal_frameChange(long, void *);
     void signal_trimChange(long, long, void *);
     void signal_error(QString);
-    void signal_stateChanged(ffSequence::ffSequenceState);
+    void signal_stateChanged(ffSequenceState);
 
 public slots:
     void onSliderChanged(long);
     void onScaleTimeslice(qreal x);
     void onScaleAnimFinished(void);
-    void onError(QString);
+//    void onError(QString);
 
     // ffSequence Events
     void onProgressStart(void);
@@ -147,8 +146,8 @@ public slots:
     void onJustLoading(void);
     void onJustOpened(void);
     void onJustClosed(void);
-    void onJustErrored(void);
-    void onStateChanged(ffSequence::ffSequenceState);
+//    void onJustErrored(void);
+    void onStateChanged(ffSequenceState);
 
     // ffSequence setFunction Events
     void onFrameChanged(long, void *);
@@ -211,4 +210,4 @@ private:
     void mouseMoveEvent(QMouseEvent *);
 };
 
-#endif // DSLRLABVIEW_H
+#endif // YCBCRLABVIEW_H

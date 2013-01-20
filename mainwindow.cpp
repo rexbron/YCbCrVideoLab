@@ -35,13 +35,24 @@ CustomApplication::~CustomApplication()
 
 bool CustomApplication::notify(QObject *receiver, QEvent *event)
 {
+    // In order for the UI to maintain sync with the various components,
+    // it is important that exceptions be properly routed based on exception
+    // types here.
     try
     {
         return QApplication::notify(receiver, event);
     }
+    catch(ffmpegError eff)
+    {
+        // Pass
+    }
+    catch(ffExportError eff)
+    {
+        // Pass
+    }
     catch(ffError eff)
     {
-
+        // Pass
     }
     catch(std::exception& e)
     {
@@ -67,7 +78,7 @@ MainWindow::MainWindow(QWidget *parent) :
     createActions();
     createMenus();
 
-    onStateChanged(m_pDSLRLabView->getState());
+    onStateChanged(m_pYCbCrLabView->getState());
 }
 
 MainWindow::~MainWindow()
@@ -106,7 +117,7 @@ void MainWindow::exportFile(void)
     {
         QFileDialog::Options    options;
         QString                 selectedFilter;
-        QFileInfo               fileInfo(m_pDSLRLabView->getFileURI());
+        QFileInfo               fileInfo(m_pYCbCrLabView->getFileURI());
 
         QString                 fileName =
             QFileDialog::getSaveFileName(this,
@@ -118,10 +129,9 @@ void MainWindow::exportFile(void)
                                          options);
         if (!fileName.isNull())
         {
-            long start, end;
             m_workerThread = QtConcurrent::run(this,
                                                &MainWindow::onExport,
-                                               fileName, start, end);
+                                               fileName);
         }
     }
 }
@@ -129,6 +139,8 @@ void MainWindow::exportFile(void)
 void MainWindow::createObjects(void)
 {
     // Export Interface
+    m_pSBEPathButton = new QPushButton(tr("Select Path"));
+    m_pSBEFileTypeCombo = new QComboBox;
     m_pSBEPlaneCombo = new QComboBox;
     m_pSBEInSpin = new QSpinBox;
     m_pSBEOutSpin = new QSpinBox;
@@ -141,15 +153,15 @@ void MainWindow::createObjects(void)
     m_pSplitter = new QSplitter(Qt::Horizontal);
     m_pSBToolBox = new QToolBox;
 
-    m_pDSLRLabView = new DSLRLabView;
+    m_pYCbCrLabView = new YCbCrLabView;
 }
 
 void MainWindow::initObjects(void)
 {
     setGeometry(QStyle::alignedRect(
                     Qt::LeftToRight, Qt::AlignCenter,
-                    QSize(DSLRLAB_DEFAULT_WIDTH,
-                          DSLRLAB_DEFAULT_HEIGHT),
+                    QSize(YCBCRLAB_DEFAULT_WIDTH,
+                          YCBCRLAB_DEFAULT_HEIGHT),
                     QApplication::desktop()->availableGeometry()));
 
     setWindowTitle(tr("YCbCr Lab"));
@@ -162,7 +174,7 @@ void MainWindow::initObjects(void)
 
     initSidebar();
     m_pSplitter->addWidget(m_pSBToolBox);
-    m_pSplitter->addWidget(m_pDSLRLabView);
+    m_pSplitter->addWidget(m_pYCbCrLabView);
 
     pRows->addWidget(m_pSplitter);
 }
@@ -182,6 +194,10 @@ void MainWindow::initSidebar(void)
     m_pSBEPlaneCombo->addItem(tr("Raw Unscaled YCbCr"), ffExportDetails::Raw);
     m_pSBEPlaneCombo->setCurrentIndex(ffExportDetails::RGB);
 
+    // Export File Type Combo Initialization
+    m_pSBEFileTypeCombo->addItem(tr("OpenEXR"), ffExportDetails::OpenEXR);
+    m_pSBEFileTypeCombo->addItem(tr("JPEG"), ffExportDetails::JPEG);
+
     QWidget *pAnchor = new QWidget;
     pRows = new QVBoxLayout;
     //pRows->setMargin(NOMARGIN);
@@ -189,8 +205,20 @@ void MainWindow::initSidebar(void)
 
     m_pSBToolBox->addItem(pAnchor, tr("Export"));
 
+    // Export Path
+    QGroupBox *pGroupBox = new QGroupBox("Path");
+    pRows->addWidget(pGroupBox);
+    pSubRows = new QVBoxLayout;
+    pGroupBox->setLayout(pSubRows);
+    pSubRows->addWidget(m_pSBEPathButton);
+    // File Type
+    pGroupBox = new QGroupBox("File Format");
+    pRows->addWidget(pGroupBox);
+    pSubRows = new QVBoxLayout;
+    pGroupBox->setLayout(pSubRows);
+    pSubRows->addWidget(m_pSBEFileTypeCombo);
     // Export Planes
-    QGroupBox *pGroupBox = new QGroupBox("Export Planes");
+    pGroupBox = new QGroupBox("Plane(s)");
     pRows->addWidget(pGroupBox);
     pSubRows = new QVBoxLayout;
     pGroupBox->setLayout(pSubRows);
@@ -226,7 +254,7 @@ void MainWindow::initSidebar(void)
     //pRows->setMargin(NOMARGIN);
     pAnchor->setLayout(pRows);
     m_pSBToolBox->addItem(pAnchor, tr("Viewer"));
-    pGroupBox = new QGroupBox(tr("Viewer Plane(s)"));
+    pGroupBox = new QGroupBox(tr("Plane(s)"));
     pRows->addWidget(pGroupBox);
     pSubRows = new QVBoxLayout;
     //pSubRows->setMargin(NOMARGIN);
@@ -246,7 +274,7 @@ void MainWindow::initSidebar(void)
             SLOT(onSidebarSetOut(int)));
     connect(m_pSBEPlaneCombo, SIGNAL(currentIndexChanged(int)), this,
             SLOT(onSidebarExportPlaneChanged(int)));
-    connect(m_pDSLRLabView->getQffSequence(),
+    connect(m_pYCbCrLabView->getQffSequence(),
             SIGNAL(signal_exportTrimChanged(long,long,void*)), this,
             SLOT(onTrimChanged(long,long,void*)));
     connect(m_pSBEInReset, SIGNAL(clicked()), this, SLOT(onSidebarResetIn()));
@@ -307,10 +335,10 @@ void MainWindow::createActions(void)
 //    m_pActionResetOut->setShortcut(tr("p"));
 //    connect(m_pActionResetOut, SIGNAL(triggered()), this, SLOT(onSidebarResetOut()));
 
-    connect(m_pDSLRLabView, SIGNAL(signal_error(QString)), this,
+    connect(m_pYCbCrLabView, SIGNAL(signal_error(QString)), this,
             SLOT(onError(QString)));
-    connect(m_pDSLRLabView, SIGNAL(signal_stateChanged(ffSequence::ffSequenceState)), this,
-            SLOT(onStateChanged(ffSequence::ffSequenceState)));
+    connect(m_pYCbCrLabView, SIGNAL(signal_stateChanged(ffSequenceState)), this,
+            SLOT(onStateChanged(ffSequenceState)));
 }
 
 void MainWindow::createMenus(void)
@@ -341,7 +369,6 @@ void MainWindow::onMenuFileOpen()
     }
     catch (std::exception e)
     {
-        onStateChanged(ffSequence::justErrored);
         throw;
     }
 }
@@ -352,13 +379,12 @@ void MainWindow::onMenuFileExport()
     {
         exportFile();
     }
-    catch (ffError eff)
+    catch (ffExportError eff)
     {
-        onStateChanged(ffSequence::justErrored);
+
     }
     catch (std::exception e)
     {
-        onStateChanged(ffSequence::justErrored);
         throw;
     }
 }
@@ -370,14 +396,14 @@ void MainWindow::onMenuFileQuit()
 
 void MainWindow::onMenuViewFitToView()
 {
-    m_pDSLRLabView->fitToView();
-    m_pDSLRLabView->getTextPillItem()->start(tr("Fit to View"));
+    m_pYCbCrLabView->fitToView();
+    m_pYCbCrLabView->getTextPillItem()->start(tr("Fit to View"));
 }
 
 void MainWindow::onMenuViewZoom1x()
 {
-    m_pDSLRLabView->resetTransform();
-    m_pDSLRLabView->getTextPillItem()->start(tr("Zoom 1x"));
+    m_pYCbCrLabView->resetTransform();
+    m_pYCbCrLabView->getTextPillItem()->start(tr("Zoom 1x"));
 }
 
 void MainWindow::onOpenFile(QString fileName)
@@ -385,10 +411,11 @@ void MainWindow::onOpenFile(QString fileName)
     try
     {
         if (fileName.isNull())
-            throw ffError("fileName.isNull()", ffError::ERROR_NULL_FILENAME);
-        m_pDSLRLabView->openSequence(fileName.toUtf8().data());
+            throw ffImportError("fileName.isNull()",
+                                ffError::ERROR_NULL_FILENAME);
+        m_pYCbCrLabView->openSequence(fileName.toUtf8().data());
     }
-    catch (ffError eff)
+    catch (ffImportError eff)
     {
         /*
          * The only legitimate case to get here is in the instance of a
@@ -399,15 +426,16 @@ void MainWindow::onOpenFile(QString fileName)
     }
 }
 
-void MainWindow::onExport(QString fileName, long start, long end)
+void MainWindow::onExport(QString fileName)
 {
     try
     {
         if (fileName.isNull())
-            throw ffError("fileName.isNull()", ffError::ERROR_NULL_FILENAME);
-        m_pDSLRLabView->saveSequence(fileName.toUtf8().data(), start, end);
+            throw ffExportError("fileName.isNull()",
+                                ffError::ERROR_NULL_FILENAME);
+        m_pYCbCrLabView->saveSequence(fileName.toUtf8().data());
     }
-    catch (ffError eff)
+    catch (ffExportError eff)
     {
         /*
          * The only legitimate case to get here is in the instance of a
@@ -422,28 +450,23 @@ void MainWindow::onError(QString message)
 {
     QMessageBox msgBox(this);
 
-    QString errorMessage =
-            tr("There was an error loading the video file specified. "
-               "Please confirm that the file type is supported. "
-               "Error: <<") + message + ">>";
-    msgBox.setText(tr("Error loading file"));
-    msgBox.setInformativeText(errorMessage);
+    msgBox.setText(tr("Error"));
+    msgBox.setInformativeText(message);
     msgBox.setStandardButtons(QMessageBox::Close);
     msgBox.setIcon(QMessageBox::Critical);
     msgBox.setWindowModality(Qt::WindowModal);
 
     msgBox.exec();
 
-    onStateChanged(m_pDSLRLabView->getState());
+    //onStateChanged(m_pYCBCRLabView->getState());
 }
 
-void MainWindow::onStateChanged(ffSequence::ffSequenceState state)
+void MainWindow::onStateChanged(ffSequenceState state)
 {
     switch (state)
     {
-    case (ffSequence::justClosed):
-    case (ffSequence::justErrored):
-    case (ffSequence::isInvalid):
+    case (justClosed):
+    case (isInvalid):
         m_pViewActionGroup->setDisabled(true);
         m_pActionFileOpen->setEnabled(true);
         m_pActionFileExport->setDisabled(true);
@@ -457,8 +480,8 @@ void MainWindow::onStateChanged(ffSequence::ffSequenceState state)
         m_pSBEOutSpin->setMaximum(ffDefault::NoFrame);
         m_pSBToolBox->setEnabled(false);
         break;
-    case (ffSequence::isLoading):
-    case (ffSequence::justLoading):
+    case (isLoading):
+    case (justLoading):
         m_pViewActionGroup->setDisabled(true);
         m_pActionFileOpen->setDisabled(true);
         m_pActionFileExport->setDisabled(true);
@@ -472,8 +495,8 @@ void MainWindow::onStateChanged(ffSequence::ffSequenceState state)
         m_pSBEOutSpin->setMaximum(ffDefault::NoFrame);
         m_pSBToolBox->setEnabled(false);
         break;
-    case (ffSequence::isValid):
-    case (ffSequence::justOpened):
+    case (isValid):
+    case (justOpened):
         m_pViewActionGroup->setEnabled(true);
         m_pActionFileOpen->setEnabled(true);
         m_pActionFileExport->setEnabled(true);
@@ -486,7 +509,7 @@ void MainWindow::onStateChanged(ffSequence::ffSequenceState state)
 void MainWindow::onTrimChanged(long in, long out, void */*sender*/)
 {
     m_pSBEInSpin->setRange(ffDefault::FirstFrame, out);
-    m_pSBEOutSpin->setRange(in, m_pDSLRLabView->getTotalFrames());
+    m_pSBEOutSpin->setRange(in, m_pYCbCrLabView->getTotalFrames());
     m_pSBEInSpin->setValue(in);
     m_pSBEOutSpin->setValue(out);
 }
@@ -499,7 +522,7 @@ void MainWindow::onFrameChanged(long frame, void */*sender*/)
 
 void MainWindow::onSidebarViewerPlaneChanged(int plane)
 {
-    m_pDSLRLabView->setViewerPlane((ffViewer::ViewerPlane)plane);
+    m_pYCbCrLabView->setViewerPlane((ffViewer::ViewerPlane)plane);
 }
 
 void MainWindow::onSidebarExportPlaneChanged(int plane)
@@ -510,21 +533,21 @@ void MainWindow::onSidebarExportPlaneChanged(int plane)
 void MainWindow::onSidebarSetIn(int in)
 {
     // Let the lower level ffSequence test for validity.
-    m_pDSLRLabView->getQffSequence()->setExportTrimIn(in, this);
+    m_pYCbCrLabView->getQffSequence()->setExportTrimIn(in, this);
 }
 
 void MainWindow::onSidebarSetOut(int out)
 {
     // Let the lower level ffSequence object test for validity.
-   m_pDSLRLabView->getQffSequence()->setExportTrimOut(out, this);
+   m_pYCbCrLabView->getQffSequence()->setExportTrimOut(out, this);
 }
 
 void MainWindow::onSidebarResetIn(void)
 {
-    m_pDSLRLabView->getQffSequence()->resetExportTrimIn(this);
+    m_pYCbCrLabView->getQffSequence()->resetExportTrimIn(this);
 }
 
 void MainWindow::onSidebarResetOut(void)
 {
-    m_pDSLRLabView->getQffSequence()->resetExportTrimOut(this);
+    m_pYCbCrLabView->getQffSequence()->resetExportTrimOut(this);
 }

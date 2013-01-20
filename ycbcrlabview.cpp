@@ -18,11 +18,18 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *******************************************************************************/
 
-#include "dslrlabview.h"
+#include "ycbcrlabview.h"
 
 // *******
-// * progressffSequence
+// * QffSequence
 // *******
+
+QffSequence::QffSequence(QWidget *parent) :
+    QObject(parent), ffSequence()
+{
+    qRegisterMetaType<ffSequenceState>("ffSequenceState");
+}
+
 void QffSequence::onProgressStart(void)
 {
     emit signal_progressStart();
@@ -53,10 +60,10 @@ void QffSequence::onJustClosed(void)
     emit signal_justClosed();
 }
 
-void QffSequence::onJustErrored(void)
-{
-    emit signal_justErrored();
-}
+//void QffSequence::onJustErrored(void)
+//{
+//    emit signal_justErrored();
+//}
 
 void QffSequence::onExportTrimChanged(long in, long out, void *sender)
 {
@@ -75,9 +82,9 @@ void QffSequence::onFrameChanged(long frame, void *sender)
 }
 
 // *******
-// * QDSLRLabView
+// * QYCBCRLabView
 // *******
-DSLRLabView::DSLRLabView(QWidget *parent) :
+YCbCrLabView::YCbCrLabView(QWidget *parent) :
     QWidget(parent),
     m_pGraphicsView(NULL),
     m_pGraphicsViewOverlay(NULL),
@@ -90,7 +97,7 @@ DSLRLabView::DSLRLabView(QWidget *parent) :
     createAnimations();
 }
 
-void DSLRLabView::createObjects(void)
+void YCbCrLabView::createObjects(void)
 {
     m_pGraphicsView = new QBaseGraphicsView(this);
     m_pGraphicsViewOverlay = new QBaseGraphicsView(this, m_pGraphicsView);
@@ -114,13 +121,13 @@ void DSLRLabView::createObjects(void)
     m_pffSequence = new QffSequence;
 }
 
-void DSLRLabView::createActions()
+void YCbCrLabView::createActions()
 {
     m_pShortcutTrimIn = new QShortcut(tr("i"), this);
     m_pShortcutTrimOut = new QShortcut(tr("o"), this);
 }
 
-void DSLRLabView::initObjects(void)
+void YCbCrLabView::initObjects(void)
 {
     m_pGraphicsView->setScene(m_pGraphicsScene);
     m_pGraphicsView->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
@@ -132,14 +139,14 @@ void DSLRLabView::initObjects(void)
 
     m_pGraphicsSceneOverlay->addItem(m_pTextPill);
     m_pGraphicsSceneOverlay->addItem(m_pSlider);
-    m_pSlider->setOpacity(DSLRVIEW_TRANSPARENT);
+    m_pSlider->setOpacity(YCBCRVIEW_TRANSPARENT);
 
     m_pTextPill->setPos(TEXT_PADDING_X, TEXT_PADDING_Y);
 
     m_pgwProgressBar = m_pGraphicsSceneOverlay->addWidget(m_pProgressBar);
     m_pProgressBar->setMaximumHeight(PROGRESS_HEIGHT);
     m_pProgressBar->setTextVisible(false);
-    m_pgwProgressBar->setOpacity(DSLRVIEW_TRANSPARENT);
+    m_pgwProgressBar->setOpacity(YCBCRVIEW_TRANSPARENT);
 
     m_pGraphicsViewOverlay->addActive(m_pSlider);
 
@@ -154,8 +161,8 @@ void DSLRLabView::initObjects(void)
             SLOT(onScaleTimeslice(qreal)));
     connect(m_pTimeLine, SIGNAL(finished()),
             SLOT(onScaleAnimFinished()));
-    connect(this, SIGNAL(signal_error(QString)), this,
-            SLOT(onError(QString)));
+//    connect(this, SIGNAL(signal_error(QString)), this,
+//            SLOT(onError(QString)));
     connect(m_pffSequence, SIGNAL(signal_progressStart()), this,
             SLOT(onProgressStart()));
     connect(m_pffSequence, SIGNAL(signal_progress(double)), this,
@@ -168,8 +175,8 @@ void DSLRLabView::initObjects(void)
             SLOT(onJustOpened()));
     connect(m_pffSequence, SIGNAL(signal_justClosed()), this,
             SLOT(onJustClosed()));
-    connect(m_pffSequence, SIGNAL(signal_justErrored()), this,
-            SLOT(onJustErrored()));
+//    connect(m_pffSequence, SIGNAL(signal_justErrored()), this,
+//            SLOT(onJustErrored()));
     connect(m_pProgressTimeline, SIGNAL(valueChanged(qreal)), this,
             SLOT(onProgressAnimation(qreal)));
     connect(m_pSlider, SIGNAL(signal_valueChanged(long)), this,
@@ -189,38 +196,38 @@ void DSLRLabView::initObjects(void)
             SLOT(onExportPlaneChanged(
                      ffExportDetails::ExportPlane,void*)));
     connect(this, SIGNAL(signal_stateChanged(
-                             ffSequence::ffSequenceState)),
-            this, SLOT(onStateChanged(ffSequence::ffSequenceState)));
+                             ffSequenceState)),
+            this, SLOT(onStateChanged(ffSequenceState)));
 
     m_pGraphicsViewOverlay->viewport()->installEventFilter(
                 m_pGraphicsViewOverlay);
 }
 
-void DSLRLabView::createAnimations(void)
+void YCbCrLabView::createAnimations(void)
 {
     m_pFadePixmap = new QGraphicsOpacityEffect;
     m_pFadePixmapAnimation = new QPropertyAnimation(m_pFadePixmap,
                                                     "opacity");
-    m_pFadePixmapAnimation->setDuration(DSLRVIEW_DURATION_INTROFADEIN);
-    m_pFadePixmapAnimation->setStartValue(DSLRVIEW_TRANSPARENT);
-    m_pFadePixmapAnimation->setEndValue(DSLRVIEW_OPAQUE);
+    m_pFadePixmapAnimation->setDuration(YCBCRVIEW_DURATION_INTROFADEIN);
+    m_pFadePixmapAnimation->setStartValue(YCBCRVIEW_TRANSPARENT);
+    m_pFadePixmapAnimation->setEndValue(YCBCRVIEW_OPAQUE);
 
     m_pFadeProgressBar = new QGraphicsOpacityEffect;
     m_pFadeProgressBarAnimation =
             new QPropertyAnimation(m_pFadeProgressBar, "opacity");
     m_pFadeProgressBarAnimation->setDuration(PROGRESS_FADE_DURATION);
-    m_pFadeProgressBarAnimation->setStartValue(DSLRVIEW_TRANSPARENT);
-    m_pFadeProgressBarAnimation->setEndValue(DSLRVIEW_OPAQUE);
+    m_pFadeProgressBarAnimation->setStartValue(YCBCRVIEW_TRANSPARENT);
+    m_pFadeProgressBarAnimation->setEndValue(YCBCRVIEW_OPAQUE);
 
     m_pFadeFrameScrubber = new QGraphicsOpacityEffect;
     m_pFadeFrameScrubberAnimation =
             new QPropertyAnimation(m_pFadeFrameScrubber, "opacity");
     m_pFadeFrameScrubberAnimation->setDuration(PROGRESS_FADE_DURATION);
-    m_pFadeFrameScrubberAnimation->setStartValue(DSLRVIEW_TRANSPARENT);
+    m_pFadeFrameScrubberAnimation->setStartValue(YCBCRVIEW_TRANSPARENT);
     m_pFadeFrameScrubberAnimation->setEndValue(SLIDER_OPACITY);
 }
 
-DSLRLabView::~DSLRLabView()
+YCbCrLabView::~YCbCrLabView()
 {
     // TODO sort out the deletion order to prevent unexpected outs.
     /*delete m_pFadeIn;
@@ -239,62 +246,61 @@ DSLRLabView::~DSLRLabView()
 /******************************************************************************
  * Functions
  ******************************************************************************/
-void DSLRLabView::resetTransform()
+void YCbCrLabView::resetTransform()
 {
     m_pGraphicsView->resetTransform();
 }
 
-void DSLRLabView::fitToView()
+void YCbCrLabView::fitToView()
 {
     m_pGraphicsView->fitInView(m_pGraphicsPixmapItem, Qt::KeepAspectRatio);
 }
 
 
-long DSLRLabView::getTotalFrames(void)
+long YCbCrLabView::getTotalFrames(void)
 {
     return m_pffSequence->getTotalFrames();
 }
 
-long DSLRLabView::getCurrentFrame(void)
+long YCbCrLabView::getCurrentFrame(void)
 {
     return m_pffSequence->getCurrentFrame();
 }
 
-void DSLRLabView::setCurrentFrame(long frame, void *sender)
+void YCbCrLabView::setCurrentFrame(long frame, void *sender)
 {
     m_pffSequence->setCurrentFrame(frame, sender);
 }
 
-QString DSLRLabView::getFileURI(void)
+QString YCbCrLabView::getFileURI(void)
 {
     return QString::fromStdString(m_pffSequence->getFileURI());
 }
 
-ffViewer::ViewerPlane DSLRLabView::getViewerPlane(void)
+ffViewer::ViewerPlane YCbCrLabView::getViewerPlane(void)
 {
     return m_viewerPlane;
 }
 
-void DSLRLabView::setViewerPlane(ffViewer::ViewerPlane planeType)
+void YCbCrLabView::setViewerPlane(ffViewer::ViewerPlane planeType)
 {
-    if ((getState() == ffSequence::isValid) && (planeType != m_viewerPlane))
+    if ((getState() == isValid) && (planeType != m_viewerPlane))
     {
         m_viewerPlane = planeType;
         emit onFrameChanged(m_pffSequence->getCurrentFrame(), this);
         m_pGraphicsView->setSceneRect(m_pGraphicsPixmapItem->boundingRect());
     }
 }
-
-ffSequence::ffSequenceState DSLRLabView::getState(void)
+ffSequenceState YCbCrLabView::getState(void)
 {
     return m_pffSequence->getState();
 }
 
-void DSLRLabView::openSequence(char *fileName)
+void YCbCrLabView::openSequence(char *fileName)
 {
     try
     {
-        if (getState() == ffSequence::isValid)
+        if (getState() == isValid)
             closeSequence();
 
         m_pffSequence->readFile(fileName);
@@ -302,54 +308,62 @@ void DSLRLabView::openSequence(char *fileName)
                      m_pffSequence->getLumaSize().m_width,
                      m_pffSequence->getLumaSize().m_height);
     }
-    catch (ffmpegError ffeff)
+    catch (ffmpegError eff)
     {
         char errorC[AV_ERROR_MAX_STRING_SIZE];
-        av_strerror(ffeff.getError(), errorC, AV_ERROR_MAX_STRING_SIZE);
+        av_strerror(eff.getError(), errorC, AV_ERROR_MAX_STRING_SIZE);
 
-        QString message = tr("FFMPEG: ") + QString(ffeff.what()) + " (" +
-                QString(errorC) + ")";
+        QString message = tr("There was an error attempting to open the "
+                             "file. <<FFMPEG: ") + QString(eff.what()) +
+                             " (" + QString(errorC) + ")>>";
+        emit signal_stateChanged(isInvalid);
         emit signal_error(message);
+        throw; // Pass up chain for proper UI handling.
     }
-    catch (ffError eff)
+    catch (ffExportError eff)
     {
-        QString message = tr("FFSEQUENCE: ") + QString(eff.what()) + " (" +
-                QString::number(eff.getError()) + ")";
+        QString message = tr("There was an error attempting to open the "
+                             "file. <<FFERROR: ") + QString(eff.what()) +
+                             " (" + QString::number(eff.getError()) + ")>>";
+        emit signal_stateChanged(isInvalid);
         emit signal_error(message);
+        throw; // Pass up chain for proper UI handling.
     }
 }
 
-void DSLRLabView::saveSequence(char *fileName, long start, long end)
+void YCbCrLabView::saveSequence(char *fileName)
 {
     try
     {
-        m_pffSequence->writeFile(fileName, start, end);
+        m_pffSequence->writeFile(fileName);
     }
-    catch (ffError eff)
+    catch (ffExportError eff)
     {
-        QString message = tr("FFSEQUENCE: ") + QString(eff.what()) + " (" +
-                QString::number(eff.getError()) + ")";
+        QString message = tr("There was an error attempting to export. "
+                             "<<FFEXPORTERROR: ") + QString(eff.what()) +
+                             " (" + QString::number(eff.getError()) + ")>>";
         emit signal_error(message);
+        throw; // Pass up chain for proper UI handling.
     }
 }
 
-void DSLRLabView::closeSequence(void)
+void YCbCrLabView::closeSequence(void)
 {
-    if (getState() == ffSequence::isValid)
+    if (getState() == isValid)
         m_pffSequence->closeFile();
 }
 
-QffSequence * DSLRLabView::getQffSequence(void)
+QffSequence * YCbCrLabView::getQffSequence(void)
 {
     return m_pffSequence;
 }
 
-QGraphicsPixmapItem* DSLRLabView::getGraphicsPixmapItem(void)
+QGraphicsPixmapItem* YCbCrLabView::getGraphicsPixmapItem(void)
 {
     return m_pGraphicsPixmapItem;
 }
 
-QTextPill* DSLRLabView::getTextPillItem(void)
+QTextPill* YCbCrLabView::getTextPillItem(void)
 {
     return m_pTextPill;
 }
@@ -357,12 +371,12 @@ QTextPill* DSLRLabView::getTextPillItem(void)
 /******************************************************************************
  * Slots
  ******************************************************************************/
-void DSLRLabView::onSliderChanged(long frame)
+void YCbCrLabView::onSliderChanged(long frame)
 {
     setCurrentFrame(frame, m_pSlider);
 }
 
-void DSLRLabView::onScaleTimeslice(qreal)
+void YCbCrLabView::onScaleTimeslice(qreal)
 {
     QTransform matrix(m_pGraphicsView->matrix());
     qreal factor = 1.0 + qreal(m_numScheduledScalings) / 500.0;
@@ -380,7 +394,7 @@ void DSLRLabView::onScaleTimeslice(qreal)
     m_pGraphicsView->setTransform(QTransform(matrix));
 }
 
-void DSLRLabView::onScaleAnimFinished(void)
+void YCbCrLabView::onScaleAnimFinished(void)
 {
     if (m_numScheduledScalings > 0)
         m_numScheduledScalings--;
@@ -388,12 +402,12 @@ void DSLRLabView::onScaleAnimFinished(void)
         m_numScheduledScalings++;
 }
 
-void DSLRLabView::onError(QString)
-{
-    emit signal_stateChanged(ffSequence::justErrored);
-}
+//void YCBCRLabView::onError(QString)
+//{
+////    emit signal_stateChanged(ffSequence::justErrored);
+//}
 
-void DSLRLabView::onProgressStart(void)
+void YCbCrLabView::onProgressStart(void)
 {
     m_pProgressBar->setMinimum(0);
     m_pProgressBar->setMaximum(PROGRESS_MAXIMUM);
@@ -401,11 +415,11 @@ void DSLRLabView::onProgressStart(void)
 
     m_pgwProgressBar->setGraphicsEffect(m_pFadeProgressBar);
     m_pFadeProgressBarAnimation->setDirection(QAbstractAnimation::Forward);
-    m_pgwProgressBar->setOpacity(DSLRVIEW_OPAQUE);
+    m_pgwProgressBar->setOpacity(YCBCRVIEW_OPAQUE);
     m_pFadeProgressBarAnimation->start();
 }
 
-void DSLRLabView::onProgress(double factor)
+void YCbCrLabView::onProgress(double factor)
 {
     m_targetProgress = (factor * PROGRESS_MAXIMUM) +
             PROGRESS_MAXIMUM * TIMELINE_PROGRESS_DELAY;
@@ -413,14 +427,14 @@ void DSLRLabView::onProgress(double factor)
         m_pProgressTimeline->start();
 }
 
-void DSLRLabView::onProgressEnd(void)
+void YCbCrLabView::onProgressEnd(void)
 {
     m_pgwProgressBar->setGraphicsEffect(m_pFadeProgressBar);
     m_pFadeProgressBarAnimation->setDirection(QAbstractAnimation::Backward);
     m_pFadeProgressBarAnimation->start();
 }
 
-void DSLRLabView::onProgressAnimation(qreal)
+void YCbCrLabView::onProgressAnimation(qreal)
 {
     if (m_targetProgress >= m_pProgressBar->value())
     {
@@ -434,33 +448,33 @@ void DSLRLabView::onProgressAnimation(qreal)
     }
 }
 
-void DSLRLabView::onJustLoading(void)
+void YCbCrLabView::onJustLoading(void)
 {
-    emit signal_stateChanged(ffSequence::justLoading);
+    emit signal_stateChanged(justLoading);
 }
 
-void DSLRLabView::onJustOpened(void)
+void YCbCrLabView::onJustOpened(void)
 {
-    emit signal_stateChanged(ffSequence::justOpened);
+    emit signal_stateChanged(justOpened);
 }
 
-void DSLRLabView::onJustClosed(void)
+void YCbCrLabView::onJustClosed(void)
 {
-    emit signal_stateChanged(ffSequence::justClosed);
+    emit signal_stateChanged(justClosed);
 }
 
-void DSLRLabView::onJustErrored(void)
-{
-    emit signal_stateChanged(ffSequence::justErrored);
-}
+//void YCBCRLabView::onJustErrored(void)
+//{
+//    emit signal_stateChanged(ffSequence::justErrored);
+//}
 
-void DSLRLabView::onStateChanged(ffSequence::ffSequenceState state)
+void YCbCrLabView::onStateChanged(ffSequenceState state)
 {
     switch (state)
     {
-    case (ffSequence::isValid):
+    case (isValid):
         break;
-    case (ffSequence::isInvalid):
+    case (isInvalid):
         disconnect(m_pSlider, SIGNAL(signal_valueChanged(long)), this,
                    SLOT(onSliderChanged(long)));
         m_pSlider->setEnabled(false);
@@ -468,8 +482,8 @@ void DSLRLabView::onStateChanged(ffSequence::ffSequenceState state)
         m_pSlider->setValue(0);
         m_pSlider->setMaximum(0);
         break;
-    case (ffSequence::justLoading):
-    case (ffSequence::isLoading):
+    case (justLoading):
+    case (isLoading):
         disconnect(m_pSlider, SIGNAL(signal_valueChanged(long)), this,
                    SLOT(onSliderChanged(long)));
         m_pSlider->setEnabled(false);
@@ -477,12 +491,11 @@ void DSLRLabView::onStateChanged(ffSequence::ffSequenceState state)
         m_pSlider->setValue(0);
         m_pSlider->setMaximum(0);
         break;
-    case (ffSequence::justOpened):
+    case (justOpened):
         fitToView();
         m_pSlider->setMinimum(ffDefault::FirstFrame);
         m_pSlider->setMaximum(getTotalFrames());
         m_pSlider->setValue(ffDefault::FirstFrame);
-        //m_pSlider->setTrim(ffTrim(getQffSequence()->getExportTrim()));
         connect(m_pSlider, SIGNAL(signal_valueChanged(long)), this,
                 SLOT(onSliderChanged(long)));
         m_pSlider->setEnabled(true);
@@ -490,7 +503,7 @@ void DSLRLabView::onStateChanged(ffSequence::ffSequenceState state)
         m_pSlider->setGraphicsEffect(m_pFadeFrameScrubber);
         m_pFadeFrameScrubberAnimation->setDirection(
                     QAbstractAnimation::Forward);
-        m_pSlider->setOpacity(DSLRVIEW_OPAQUE);
+        m_pSlider->setOpacity(YCBCRVIEW_OPAQUE);
         m_pFadeFrameScrubberAnimation->start();
 
         // FUTURE_RACE
@@ -501,8 +514,7 @@ void DSLRLabView::onStateChanged(ffSequence::ffSequenceState state)
         m_pTextPill->start(tr("Loaded file ") +
                            QString::fromStdString(m_pffSequence->getFileURI()));
         break;
-    case (ffSequence::justErrored):
-    case (ffSequence::justClosed):
+    case (justClosed):
         m_pGraphicsPixmapItem->setGraphicsEffect(m_pFadePixmap);
         m_pFadePixmapAnimation->setDirection(QAbstractAnimation::Backward);
         m_pFadePixmapAnimation->start();
@@ -514,7 +526,7 @@ void DSLRLabView::onStateChanged(ffSequence::ffSequenceState state)
     }
 }
 
-void DSLRLabView::onFrameChanged(long frame, void */*sender*/)
+void YCbCrLabView::onFrameChanged(long frame, void */*sender*/)
 {
     QImage *pImage = NULL;
     ffRawFrame *pRawFrame = m_pffSequence->getRawFrame(frame);
@@ -548,7 +560,7 @@ void DSLRLabView::onFrameChanged(long frame, void */*sender*/)
                        QString::number(m_pffSequence->getCurrentFrame()));
 }
 
-void DSLRLabView::onExportTrimChanged(long in, long out, void *)
+void YCbCrLabView::onExportTrimChanged(long in, long out, void *)
 {
     if ((in != m_pSlider->getTrim().m_in) &&
             (out != m_pSlider->getTrim().m_out))
@@ -571,17 +583,17 @@ void DSLRLabView::onExportTrimChanged(long in, long out, void *)
     m_pSlider->setTrim(in, out);
 }
 
-void DSLRLabView::onExportTrimInPressed()
+void YCbCrLabView::onExportTrimInPressed()
 {
     getQffSequence()->setExportTrimIn(m_pSlider->value(), m_pShortcutTrimIn);
 }
 
-void DSLRLabView::onExportTrimOutPressed()
+void YCbCrLabView::onExportTrimOutPressed()
 {
     getQffSequence()->setExportTrimOut(m_pSlider->value(), m_pShortcutTrimOut);
 }
 
-void DSLRLabView::onExportPlaneChanged(ffExportDetails::ExportPlane, void *)
+void YCbCrLabView::onExportPlaneChanged(ffExportDetails::ExportPlane, void *)
 {
     // Pass. TODO Update TextPill
 }
@@ -589,7 +601,7 @@ void DSLRLabView::onExportPlaneChanged(ffExportDetails::ExportPlane, void *)
 /*****************************************************************************
  * Event Overrides
  *****************************************************************************/
-void DSLRLabView::wheelEvent(QWheelEvent* event)
+void YCbCrLabView::wheelEvent(QWheelEvent* event)
 {
     if (event->orientation() == Qt::Vertical)
     {
@@ -605,7 +617,7 @@ void DSLRLabView::wheelEvent(QWheelEvent* event)
     }
 }
 
-void DSLRLabView::resizeEvent(QResizeEvent *event)
+void YCbCrLabView::resizeEvent(QResizeEvent *event)
 {
     QRect rect(QPoint(0,0), event->size());
     m_pGraphicsView->setGeometry(rect);
@@ -626,19 +638,19 @@ void DSLRLabView::resizeEvent(QResizeEvent *event)
     m_pgwProgressBar->update();
 }
 
-void DSLRLabView::mouseReleaseEvent(QMouseEvent *event)
+void YCbCrLabView::mouseReleaseEvent(QMouseEvent *event)
 {
     m_pGraphicsView->eventFilter(m_pGraphicsView, event);
     event->ignore();
 }
 
-void DSLRLabView::mousePressEvent(QMouseEvent *event)
+void YCbCrLabView::mousePressEvent(QMouseEvent *event)
 {
     m_pGraphicsView->eventFilter(m_pGraphicsView, event);
     event->ignore();
 }
 
-void DSLRLabView::mouseMoveEvent(QMouseEvent *event)
+void YCbCrLabView::mouseMoveEvent(QMouseEvent *event)
 {
     m_pGraphicsView->eventFilter(m_pGraphicsView, event);
     event->ignore();
